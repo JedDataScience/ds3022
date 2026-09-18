@@ -14,6 +14,10 @@ __pycache__/
 *.duckdb.wal
 *.db
 
+# Generated plots/images from pipeline runs
+03_transform/dbt/plots/
+03_transform/trip_distance_cutoffs.png
+
 # C extensions
 *.so
 

@@ -1,5 +1,7 @@
 -- Staging: light cleanup and standardization of raw parquet columns.
--- Materialized as a view — cheap, and dbt-duckdb reads parquet lazily.
+-- Materialized as a table — pulls all 12 remote parquet files once per
+-- rebuild and caches the result locally, so downstream models and ad
+-- hoc queries don't re-fetch from the network every time.
 
 with source as (
     select * from {{ source('raw', 'yellow_tripdata') }}
@@ -33,3 +35,9 @@ where
     and trip_distance_miles > 0
     and fare_amount > 0
     and passenger_count > 0
+    -- drop trips whose average speed is null, non-positive, or over 60 mph:
+    -- above ~60 the trip counts stop tapering and are mostly GPS/meter glitches
+    and trip_distance_miles
+        / nullif(date_diff('second', pickup_at, dropoff_at) / 3600.0, 0) > 0
+    and trip_distance_miles
+        / nullif(date_diff('second', pickup_at, dropoff_at) / 3600.0, 0) <= 60

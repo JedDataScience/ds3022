@@ -10,4 +10,4 @@ from {{ ref('fct_trips') }}
 where
     avg_speed_mph is null
     or avg_speed_mph <= 0
-    or avg_speed_mph > 100
+    or avg_speed_mph > 60

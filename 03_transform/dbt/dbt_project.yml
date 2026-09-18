@@ -11,7 +11,7 @@ clean-targets: ["target", "dbt_packages"]
 models:
   nyc_taxi_dbt:
     staging:
-      +materialized: view
+      +materialized: table
     marts:
       +materialized: table
     # mart_daily_summary (aggregation layer) added in a later class — see future/

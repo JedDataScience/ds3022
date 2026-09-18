@@ -11,15 +11,49 @@ models:
         tests:
           - not_null
 
-#  - name: mart_hourly_demand
-#    description: >
-#      Trip volume and averages by hour of day (0-23) — the demand-curve
-#      grain for QUESTIONS.md #1.
-#    columns:
-#      - name: pickup_hour
-#        tests:
-#          - unique
-#          - not_null
-#      - name: trip_count
-#        tests:
-#          - not_null
+  - name: mart_hourly_demand
+    description: >
+      Trip volume and averages by hour of day (0-23) — the demand-curve
+      grain for QUESTIONS.md #1.
+    columns:
+      - name: pickup_hour
+        tests:
+          - unique
+          - not_null
+      - name: trip_count
+        tests:
+          - not_null
+
+  - name: mart_monthly_demand
+    description: >
+      Trip volume and averages by month — the seasonality grain for
+      QUESTIONS.md #3.
+    columns:
+      - name: pickup_month
+        tests:
+          - unique
+          - not_null
+      - name: trip_count
+        tests:
+          - not_null
+
+  - name: mart_location_rankings
+    description: >
+      Top 10 and bottom 10 taxi zones by trip count, ranked separately for
+      pickups and dropoffs (40 rows). Excludes zones 264/265 (Unknown /
+      Outside of NYC). Mapped by plots/plot_location_rankings.py.
+    columns:
+      - name: location_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['pickup', 'dropoff']
+      - name: rank_group
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['top', 'bottom']
+      - name: location_id
+        tests:
+          - not_null

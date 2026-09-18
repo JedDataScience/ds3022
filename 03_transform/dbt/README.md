@@ -99,6 +99,40 @@ model actually needs them — e.g. looping over columns, or an
 incremental model's `{% if is_incremental() %}` block — rather than as
 syntax to memorize up front.
 
+## View vs. table (and why `dbt run` re-reads everything)
+
+- **`view`**: dbt stores your `SELECT` as a database view. Nothing is
+  copied locally — every query against it re-runs the SQL and, for
+  `stg_yellow_tripdata`, re-fetches the remote parquet over HTTPS each
+  time.
+- **`table`**: dbt materializes the result into DuckDB on disk
+  (`CREATE OR REPLACE TABLE ... AS SELECT`). The remote parquet is read
+  once at build time; everything downstream reads the local table.
+
+**`dbt run` does not diff or check for existing data — it always
+rebuilds.** Every run re-executes each model's `SELECT` from scratch,
+so a `table` model still re-fetches all remote parquet files on every
+`dbt run`, same as a `view` would. Materializing as `table` only saves
+the network round-trip *between* runs (downstream models read local
+disk instead of the network); it doesn't make a single `dbt run` any
+smarter.
+
+If re-reading the full remote source on every run is too slow/costly:
+
+- **Scope your runs** once staging is built, e.g.
+  `dbt run --select fct_trips+` or `dbt run --exclude stg_yellow_tripdata`,
+  so you only rebuild the models that actually changed.
+- **Use `incremental` materialization** for models where you can
+  express "only the new rows" in SQL (via `{% if is_incremental() %}`,
+  filtering on a date or ID column) — the first run does a full load,
+  later runs only add rows matching that filter. This doesn't avoid
+  reading the remote file if the filter can't be pushed down to
+  CloudFront/S3, but it avoids re-writing rows that are already local.
+
+For this project's static TLC parquet source, the simplest habit is:
+build `stg_yellow_tripdata` once, then scope subsequent runs to
+`marts` so the remote fetch isn't repeated unnecessarily.
+
 ## Class-by-class build-up
 
 - **Class 1:** `stg_yellow_tripdata` only — a `source()` reading raw

@@ -11,5 +11,3 @@ nyc_taxi_dbt:
       extensions:
         - httpfs
         - parquet
-      settings:
-        

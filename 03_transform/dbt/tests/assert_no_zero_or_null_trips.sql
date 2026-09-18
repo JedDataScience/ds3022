@@ -3,7 +3,7 @@
 -- past staging.
 
 select *
-from {{ ref('stg_yellow_tripdata') }}
+from {{ ref('fct_trips') }}
 where
     passenger_count is null or passenger_count = 0
     or trip_distance_miles is null or trip_distance_miles = 0
