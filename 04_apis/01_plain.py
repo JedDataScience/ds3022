@@ -3,11 +3,27 @@
 
 import httpx
 import json
+import logging
+
+logging.basicConfig(
+    filename="04_apis/01_plain.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 USER = "schacon"
 URL = "https://api.github.com/users/{user}/events/public"
 
-response = httpx.get(URL.format(user=USER))
+try:
+    response = httpx.get(URL.format(user=USER))
+    response.raise_for_status()  # Raises an error for bad responses (4xx or 5xx)   
+    data = response.json()
 
-data = response.json()
-print(json.dumps(data, indent=2))
+    for item in data: 
+        print(item["repo"]["name"], " - ", item["type"])
+
+    logging.info(f"Retrieved {len(data)} events for user {USER}")
+
+except httpx.HTTPError as e:
+    #print(e)
+    logging.error(f"Error fetching events for user {USER}: {e}")
