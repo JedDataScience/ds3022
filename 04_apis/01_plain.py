@@ -11,7 +11,7 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-USER = "schacon"
+USER = "schaconxyz"
 URL = "https://api.github.com/users/{user}/events/public"
 
 try:
