@@ -8,6 +8,12 @@ Why it lags:
   or ~500 req/s, against a 1000 msg/s source. The extra ~500 tasks per second wait
   for a free slot, and the number of tasks in flight grows without limit.
 
+So NEVER assume that entries arriving in a topic are in time order. 
+
+entries kafka arrive in time order, but thats not always the case. 
+If the downstream service is slow, the lag grows, and the reader never slows down. 
+The backlog moves into our own memory as thousands of waiting tasks instead of a visible queue.
+  
 Backpressure (or the lack of it):
   create_task() never waits, so the reader never slows down, and the socket always
   looks drained. Like misstep 3, the backlog moves into our own memory, but this time
