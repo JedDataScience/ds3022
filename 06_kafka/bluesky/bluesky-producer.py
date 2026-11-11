@@ -10,7 +10,7 @@ This script demonstrates how to use a Kafka producer to stream real-time
 events from Bluesky Jetstream to a Kafka topic.
 
 NOTE that it does not parse/consume messages, it publishes/produces them to Kafka.
-Kafka publishing is currently commented out; the script only reads the stream.
+Each commit event is published to the `bluesky-events` Kafka topic, keyed by the user's DID.
 
 If the connection drops, it reconnects with exponential backoff and resumes from the
 last event it saw, using Jetstream's `cursor` parameter (a unix timestamp in microseconds).
@@ -63,29 +63,34 @@ cursor = None                              # time_us of the most recent event se
 backoff = 1                                # Current reconnect delay in seconds
 stop = False                               # Set on Ctrl-C to break out of the reconnect loop
 
-# KAFKA_BROKER = os.getenv("KAFKA_BROKER", "127.0.0.1:19092,127.0.0.1:29092,127.0.0.1:39092")
-#
-# app = Application(
-#     broker_address=KAFKA_BROKER,
-#     producer_extra_config={
-#         "broker.address.family": "v4",
-#         # Batch settings for better throughput
-#         "linger.ms": 5,  # Wait up to 5ms to batch messages
-#         "batch.size": 100000,  # Batch up to 100KB
-#     }
-# )
-# topic = app.topic(
-#     name="bluesky-events",
-#     value_serializer="json",
-#     config=TopicConfig(
-#         num_partitions=1,
-#         replication_factor=3,
-#         extra_config={"retention.ms": str(TOPIC_RETENTION_MS)}
-#     )
-# )
-#
-# # Create a kafka producer, reused for every message
-# producer = app.get_producer()
+# Throughput counter: messages produced since last_report, printed every RATE_INTERVAL seconds
+RATE_INTERVAL = 5
+msg_count = 0
+last_report = time.time()
+
+KAFKA_BROKER = os.getenv("KAFKA_BROKER", "127.0.0.1:19092,127.0.0.1:29092,127.0.0.1:39092")
+
+app = Application(
+    broker_address=KAFKA_BROKER,
+    producer_extra_config={
+        "broker.address.family": "v4",
+        # Batch settings for better throughput
+        "linger.ms": 5,  # Wait up to 5ms to batch messages
+        "batch.size": 100000,  # Batch up to 100KB
+    }
+)
+topic = app.topic(
+    name="bluesky-events",
+    value_serializer="json",
+    config=TopicConfig(
+        num_partitions=1,
+        replication_factor=3,
+        extra_config={"retention.ms": str(TOPIC_RETENTION_MS)}
+    )
+)
+
+# Create a kafka producer, reused for every message
+producer = app.get_producer()
 
 
 def on_open(ws):
@@ -96,7 +101,7 @@ def on_open(ws):
 
 def on_message(ws, message):
     """Handle each Jetstream event: track cursor, skip non-commit events, key by DID, (optionally) produce to Kafka."""
-    global cursor
+    global cursor, msg_count, last_report
     try:
         data = json.loads(message)
 
@@ -110,7 +115,18 @@ def on_message(ws, message):
         # The DID (decentralized identifier) uniquely identifies the acting user
         did = data["did"]
 
-        print(did)
+        # Serialize: DID as the key (keeps a user's events in order on one partition),
+        # the full event dict as the JSON value
+        msg = topic.serialize(key=did, value=data)
+        # Hand the bytes to the producer; it batches and sends them in the background
+        producer.produce(topic=topic.name, key=msg.key, value=msg.value)
+
+        # Count produced messages and report the rate every RATE_INTERVAL seconds
+        msg_count += 1
+        now = time.time()
+        if now - last_report >= RATE_INTERVAL:
+            print(f"{msg_count / (now - last_report):.1f} msgs/sec")
+            msg_count, last_report = 0, now
 
     except (json.JSONDecodeError, KeyError) as e:
         print(f"Bad message ({type(e).__name__}: {e})")
@@ -152,4 +168,4 @@ except KeyboardInterrupt:
 finally:
     print("\nStopped.")
     # Ensure we flush on exit
-    # producer.flush()
+    producer.flush()
