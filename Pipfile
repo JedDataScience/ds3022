@@ -28,6 +28,7 @@ asyncio = "*"
 websocket-client = "*"
 requests_sse = "*"
 orjson = "*"
+confluent-kafka = "*"
 
 [dev-packages]
 
